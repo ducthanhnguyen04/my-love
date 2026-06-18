@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tành xinh yêu ra đây mà xem nì</title>
+
+    <!-- Google Fonts for premium typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #ff3366;
+            --primary-glow: rgba(255, 51, 102, 0.4);
+            --bg-dark: #04020a;
+            --text-light: #ffffff;
+            --glass-bg: rgba(20, 10, 30, 0.5);
+            --glass-border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-light);
+        }
+
+        /* Ambient background vignette */
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Ambient overlay elements */
+        .ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Make interactive elements inside overlay clickable */
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+
+
+        /* Label on the center of reflection plane - romantic text */
+        .central-name {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.85);
+            text-align: center;
+            z-index: 5;
+            pointer-events: none;
+            letter-spacing: 1px;
+            text-shadow: 0 0 12px rgba(255, 51, 102, 0.6), 0 0 4px rgba(255, 255, 255, 0.4);
+            animation: float-name 3s infinite ease-in-out;
+        }
+
+        @keyframes float-name {
+            0% {
+                transform: translate(-50%, -50%) translateY(0px);
+            }
+
+            50% {
+                transform: translate(-50%, -50%) translateY(-6px);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) translateY(0px);
+            }
+        }
+
+        /* Top-center instruction banner */
+        .instruction-banner {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 300;
+            text-transform: uppercase;
+            text-align: center;
+            pointer-events: none;
+            transition: opacity 1s;
+        }
+
+        /* Responsive Mobile tweaks */
+        @media (max-width: 600px) {}
+    </style>
+</head>
+
+<body>
+
+    <!-- Visual Layer: Background Vignette -->
+    <div class="vignette"></div>
+
+    <!-- Canvas for particle graphics -->
+    <canvas id="heartCanvas"></canvas>
+
+    <!-- Central Name text (overlaying the reflection) -->
+    <div id="centralName" class="central-name">Hello bạn yêuuuu</div>
+
+    <!-- UI Overlay Layer -->
+    <div class="ui-container">
+        <!-- Instruction -->
+        <div id="instruction" class="instruction-banner">Ấn vào màn hình iiii</div>
+    </div>
+
+    <!-- Orbiting Texts List (Configured directly from HTML) -->
+    <ul id="orbitTextsList" style="display: none;">
+        <li>Yêu bạnnn</li>
+        <li>Yêu bạnnn</li>
+        <li>Yêu bạnnn</li>
+        <li>Cái gì quan trọng nói 3 lần</li>
+        <li>Bạn yêu tuyệt nhất</li>
+        <li>Bạn yêu xinhh nhất</li>
+    </ul>
+
+    <script>
+        // --- Read texts directly from HTML ---
+        const orbitTextsData = [];
+        const textsListEl = document.getElementById("orbitTextsList");
+        if (textsListEl) {
+            const listItems = textsListEl.getElementsByTagName("li");
+            for (let i = 0; i < listItems.length; i++) {
+                orbitTextsData.push(listItems[i].textContent.trim());
+            }
+        }
+
+        // --- Canvas 2D Rendering Engine ---
+        const canvas = document.getElementById("heartCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Device adaptation variables
+        let centerX = window.innerWidth / 2;
+        let centerY = window.innerHeight * 0.42;
+        let heartScale = 1.0;
+        let mirrorY = window.innerHeight * 0.76;
+        let mirrorRadiusX = 0;
+        let mirrorRadiusY = 0;
+        let orbitRadius = 0;
+
+        function updateDimensions() {
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+
+            centerX = window.innerWidth / 2;
+            centerY = window.innerHeight * 0.42;
+
+            // Scale adaptively for mobile
+            const minDim = Math.min(window.innerWidth, window.innerHeight);
+
+            if (window.innerWidth < 600) {
+                // Mobile Portrait
+                heartScale = minDim / 48;
+                centerY = window.innerHeight * 0.40;
+                mirrorY = window.innerHeight * 0.72;
+                mirrorRadiusX = heartScale * 9.8;
+                mirrorRadiusY = heartScale * 2.8;
+            } else {
+                // Desktop or Landscape
+                heartScale = minDim / 44;
+                mirrorY = window.innerHeight * 0.76;
+                mirrorRadiusX = heartScale * 10.5;
+                mirrorRadiusY = heartScale * 3.0;
+            }
+
+            orbitRadius = mirrorRadiusX * 1.15;
+
+            // Reposition central name div relative to mirror plane
+            const centralName = document.getElementById("centralName");
+            centralName.style.top = `${mirrorY}px`;
+            // Dynamic font sizes
+            centralName.style.fontSize = `${Math.max(14, heartScale * 1.05)}px`;
+        }
+
+        window.addEventListener("resize", updateDimensions);
+        updateDimensions();
+
+        // Mathematical parametric heart formula (centered at 0,0)
+        // returns coordinates in units (around -16 to 16)
+        function getHeartPoint(t) {
+            return {
+                x: 16 * Math.pow(Math.sin(t), 3),
+                y: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)
+            };
+        }
+
+        // Ambient Twinkling Stars
+        const stars = [];
+        const numStars = 120;
+        for (let i = 0; i < numStars; i++) {
+            stars.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                size: Math.random() * 1.2 + 0.3,
+                opacity: Math.random(),
+                twinkleSpeed: 0.005 + Math.random() * 0.015,
+                phase: Math.random() * Math.PI * 2
+            });
+        }
+
+        function drawStars(time) {
+            ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < stars.length; i++) {
+                const star = stars[i];
+                // Twinkle effect using sine wave
+                const op = 0.15 + 0.8 * (0.5 + 0.5 * Math.sin(time * star.twinkleSpeed * 100 + star.phase));
+                ctx.globalAlpha = op;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Particle Glow Colors
+        const GLOW_COLORS = [
+            'rgba(255, 50, 100, ',  // Bright Neon Pink-Red
+            'rgba(255, 20, 80, ',   // Deep Passion Red
+            'rgba(255, 110, 160, ', // Sweet Light Pink
+            'rgba(255, 60, 140, ',  // Hot Magenta
+            'rgba(230, 30, 90, '    // Deep Crimson
+        ];
+
+        function getRandomGlowColor() {
+            return GLOW_COLORS[Math.floor(Math.random() * GLOW_COLORS.length)];
+        }
+
+        // Core Solid Beating Heart
+        const coreParticles = [];
+        const numCore = 600;
+
+        // Halo Embers radiating outwards
+        const haloParticles = [];
+        const numHalo = 450;
+
+        // Sparkle Bursts from Taps
+        const sparkles = [];
+
+        function initParticles() {
+            coreParticles.length = 0;
+            haloParticles.length = 0;
+
+            // Generate Core shell particles
+            for (let i = 0; i < numCore; i++) {
+                const t = Math.random() * Math.PI * 2 - Math.PI;
+                // Generate horizontal rotation phi around vertical axis for 3D thickness
+                const phi = (Math.random() - 0.5) * 0.9;
+
+                const basePt = getHeartPoint(t);
+
+                // Form 3D Shell coordinate
+                const x = basePt.x * Math.cos(phi);
+                const z = basePt.x * Math.sin(phi);
+                const y = basePt.y;
+
+                // Add slight offset distribution for volumetric thickness
+                const dispersion = 0.9 + Math.random() * 0.15;
+                const rx = x * dispersion;
+                const ry = y * dispersion;
+                const rz = z * dispersion;
+
+                coreParticles.push({
+                    bx: rx,
+                    by: ry,
+                    bz: rz,
+                    x: rx,
+                    y: ry,
+                    z: rz,
+                    size: Math.random() * 1.5 + 0.6,
+                    color: getRandomGlowColor(),
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.03 + Math.random() * 0.05
+                });
+            }
+
+            // Generate Halo particles
+            for (let i = 0; i < numHalo; i++) {
+                const t = Math.random() * Math.PI * 2 - Math.PI;
+                const phi = (Math.random() - 0.5) * 0.8;
+
+                const basePt = getHeartPoint(t);
+
+                const x = basePt.x * Math.cos(phi);
+                const z = basePt.x * Math.sin(phi);
+                const y = basePt.y;
+
+                // Calculate direction vector outwards from center for expansion speed
+                const len = Math.sqrt(x * x + y * y + z * z);
+                const dx = x / len;
+                const dy = y / len;
+                const dz = z / len;
+
+                haloParticles.push({
+                    bx: x,
+                    by: y,
+                    bz: z,
+                    x: x,
+                    y: y,
+                    z: z,
+                    dx: dx,
+                    dy: dy,
+                    dz: dz,
+                    size: Math.random() * 1.0 + 0.4,
+                    color: getRandomGlowColor(),
+                    life: Math.random(),
+                    speed: 0.006 + Math.random() * 0.012
+                });
+            }
+        }
+
+        initParticles();
+
+        // Tap explosion helper
+        function createSparkles(x, y) {
+            const count = 40;
+            const colors = ['#ff3366', '#ff66b2', '#ffffff', '#ffb3d1', '#ffd700'];
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1.5 + Math.random() * 4.0;
+                sparkles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - (1.0 + Math.random() * 1.5), // slight upward draft
+                    size: Math.random() * 2.5 + 1.0,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    opacity: 1.0,
+                    life: 1.0,
+                    decay: 0.015 + Math.random() * 0.025
+                });
+            }
+        }
+
+        // --- 3D Text Orbit Logic ---
+        const orbitTexts = [];
+        let textAngle = 0;
+
+        window.initializeTextOrbit = function (textsArray) {
+            orbitTexts.length = 0;
+            const N = textsArray.length;
+            for (let i = 0; i < N; i++) {
+                orbitTexts.push({
+                    text: textsArray[i],
+                    offsetAngle: (i * Math.PI * 2) / N
+                });
+            }
+        };
+
+        // Initialize with loaded HTML texts
+        window.initializeTextOrbit(orbitTextsData);
+
+        function drawTextOrbitElement(element, angleY, backPass) {
+            const currentAngle = angleY + element.offsetAngle;
+
+            // 3D coordinates relative to mirror center
+            // Orbit is horizontal (Y constant, X and Z circular)
+            const tx = orbitRadius * Math.cos(currentAngle);
+            const tz = orbitRadius * Math.sin(currentAngle);
+
+            // Hover text slightly above reflection surface
+            const ty = -6;
+
+            // Project around X-axis for a flat looking tilt
+            const tiltX = 0.22; // Orbit inclination angle
+            const ty_rot = ty * Math.cos(tiltX) - tz * Math.sin(tiltX);
+            const tz_rot = ty * Math.sin(tiltX) + tz * Math.cos(tiltX);
+
+            // Z-occlusion sorting check:
+            // backPass: true draws back texts (tz_rot > 0), false draws front texts (tz_rot <= 0)
+            if (backPass && tz_rot <= 0) return;
+            if (!backPass && tz_rot > 0) return;
+
+            // 3D Projection
+            const focalLength = 320;
+            const proj = focalLength / (focalLength + tz_rot);
+            const screenX = centerX + tx * proj;
+            const screenY = mirrorY + ty_rot * proj;
+
+            // Font styling depending on depth
+            // tz_rot is in [-orbitRadius, orbitRadius]
+            const depthFactor = (tz_rot + orbitRadius) / (2 * orbitRadius); // 0 (front) to 1 (back)
+
+            const scale = 1.15 - 0.45 * depthFactor; // larger in front
+            const opacity = 1.0 - 0.75 * depthFactor; // opaque in front
+
+            const fontSize = Math.max(9, Math.round(heartScale * 0.85 * scale));
+
+            ctx.font = `600 ${fontSize}px 'Outfit', sans-serif`;
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            // Draw text shadow glow
+            ctx.shadowBlur = 6;
+            ctx.shadowColor = `rgba(255, 51, 102, ${opacity * 0.75})`;
+            ctx.fillText(element.text, screenX, screenY);
+
+            // Reset shadows immediately to maintain rendering performance
+            ctx.shadowBlur = 0;
+        }
+
+        // --- Render Animation Loop ---
+        function animate() {
+            const time = Date.now() * 0.0015;
+
+            // Clear screen
+            ctx.fillStyle = '#030108'; // Very dark violet background
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Starfield background
+            drawStars(time);
+
+            // 2. Beating math: Double heartbeat formula
+            let t_mod = time % (Math.PI * 2);
+            let pulse = 1.0;
+            if (t_mod < 0.6) {
+                // First big beat
+                pulse += 0.16 * Math.sin(t_mod * Math.PI / 0.6);
+            } else if (t_mod < 1.1) {
+                // Second smaller beat
+                pulse += 0.07 * Math.sin((t_mod - 0.6) * Math.PI / 0.5);
+            }
+
+            // 3D Rotations parameters oscillating over time
+            const rotY = Math.sin(time * 0.3) * 0.22; // Left-Right rotate
+            const rotX = 0.08 + Math.cos(time * 0.2) * 0.03; // Tiny tilt adjustments
+
+            // 3. Draw Mirror surface base (Elliptical puddle)
+            const mirrorGradient = ctx.createRadialGradient(
+                centerX, mirrorY, 0,
+                centerX, mirrorY, mirrorRadiusX
+            );
+            mirrorGradient.addColorStop(0, 'rgba(40, 15, 30, 0.45)');
+            mirrorGradient.addColorStop(0.5, 'rgba(20, 5, 15, 0.25)');
+            mirrorGradient.addColorStop(0.8, 'rgba(10, 2, 8, 0.1)');
+            mirrorGradient.addColorStop(1, 'rgba(255, 51, 102, 0.06)'); // Subtle outer ring glow
+
+            ctx.fillStyle = mirrorGradient;
+            ctx.beginPath();
+            ctx.ellipse(centerX, mirrorY, mirrorRadiusX, mirrorRadiusY, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4. Draw Orbiting Texts in the BACK (passes behind reflection and heart)
+            textAngle += 0.005; // speed of orbit rotation
+            for (let i = 0; i < orbitTexts.length; i++) {
+                drawTextOrbitElement(orbitTexts[i], textAngle, true);
+            }
+
+            // 5. Draw HEARTS AND REFLECTIONS
+            // Prepare arrays for 3D projected coordinates for efficient painting
+            const projectedCore = [];
+            const projectedHalo = [];
+
+            const focalLength = 280;
+
+            // Project Core points
+            for (let i = 0; i < coreParticles.length; i++) {
+                const p = coreParticles[i];
+
+                // Add soft random flutter vibration to core so it sparkles with life
+                const flutter = Math.sin(time * 8 + p.phase) * 0.25;
+                const cx = p.bx + flutter * p.bx / 10;
+                const cy = p.by + flutter * p.by / 10;
+                const cz = p.bz + flutter * p.bz / 10;
+
+                // 3D rotation Y
+                let x1 = cx * Math.cos(rotY) - cz * Math.sin(rotY);
+                let z1 = cx * Math.sin(rotY) + cz * Math.cos(rotY);
+                // 3D rotation X
+                let y2 = cy * Math.cos(rotX) - z1 * Math.sin(rotX);
+                let z2 = cy * Math.sin(rotX) + z1 * Math.cos(rotX);
+
+                const proj = focalLength / (focalLength + z2);
+                const screenX = centerX + x1 * heartScale * proj * pulse;
+                const screenY = centerY - y2 * heartScale * proj * pulse;
+
+                // Opacity fades with depth to enhance 3D feel
+                const depthOp = 0.4 + 0.6 * ((focalLength - z2) / focalLength);
+
+                projectedCore.push({
+                    x: screenX,
+                    y: screenY,
+                    z: z2,
+                    size: p.size * proj,
+                    color: p.color,
+                    opacity: depthOp
+                });
+            }
+
+            // Project and Update Halo points
+            for (let i = 0; i < haloParticles.length; i++) {
+                const p = haloParticles[i];
+
+                // Advance life cycle
+                p.life += p.speed;
+                if (p.life >= 1.0) {
+                    p.life = 0;
+                    p.x = p.bx;
+                    p.y = p.by;
+                    p.z = p.bz;
+                }
+
+                // Expand outward radially
+                const currentScale = 1.0 + p.life * 0.22;
+                const hx = p.bx * currentScale + p.dx * p.life * 4.0;
+                const hy = p.by * currentScale + p.dy * p.life * 4.0;
+                const hz = p.bz * currentScale + p.dz * p.life * 4.0;
+
+                // 3D rotation Y
+                let x1 = hx * Math.cos(rotY) - hz * Math.sin(rotY);
+                let z1 = hx * Math.sin(rotY) + hz * Math.cos(rotY);
+                // 3D rotation X
+                let y2 = hy * Math.cos(rotX) - z1 * Math.sin(rotX);
+                let z2 = hy * Math.sin(rotX) + z1 * Math.cos(rotX);
+
+                const proj = focalLength / (focalLength + z2);
+                const screenX = centerX + x1 * heartScale * proj * pulse;
+                const screenY = centerY - y2 * heartScale * proj * pulse;
+
+                // Opacity fades out heavily as life decays
+                const lifeOp = (1.0 - p.life) * 0.75;
+
+                projectedHalo.push({
+                    x: screenX,
+                    y: screenY,
+                    z: z2,
+                    size: p.size * proj,
+                    color: p.color,
+                    opacity: lifeOp
+                });
+            }
+
+            // A. Draw Mirror reflection points (squashed, blurred, faded)
+            // Reflection Y-squash factor = 0.36
+            ctx.globalCompositeOperation = "screen"; // screen blend makes colors glow on top of reflection base
+
+            // Draw core reflections
+            for (let i = 0; i < projectedCore.length; i++) {
+                const p = projectedCore[i];
+                const refY = mirrorY + (mirrorY - p.y) * 0.36;
+                const refOpacity = p.opacity * 0.28; // reflected light is weaker
+
+                ctx.fillStyle = p.color + refOpacity.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(p.x, refY, p.size * 1.5, 0, Math.PI * 2); // slightly larger radius for blur
+                ctx.fill();
+            }
+
+            // Draw halo reflections
+            for (let i = 0; i < projectedHalo.length; i++) {
+                const p = projectedHalo[i];
+                const refY = mirrorY + (mirrorY - p.y) * 0.36;
+                const refOpacity = p.opacity * 0.25;
+
+                ctx.fillStyle = p.color + refOpacity.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(p.x, refY, p.size * 1.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // B. Draw main beating heart (Core then Halo overlay)
+            // Draw core particles
+            for (let i = 0; i < projectedCore.length; i++) {
+                const p = projectedCore[i];
+                ctx.fillStyle = p.color + p.opacity.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw halo particles
+            for (let i = 0; i < projectedHalo.length; i++) {
+                const p = projectedHalo[i];
+                ctx.fillStyle = p.color + p.opacity.toFixed(2) + ')';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.globalCompositeOperation = "source-over"; // Reset blend mode
+
+            // 6. Draw Orbiting Texts in the FRONT (passes in front of reflection base)
+            for (let i = 0; i < orbitTexts.length; i++) {
+                drawTextOrbitElement(orbitTexts[i], textAngle, false);
+            }
+
+            // 7. Update and Draw Click/Touch Sparkle firework bursts
+            for (let i = sparkles.length - 1; i >= 0; i--) {
+                const s = sparkles[i];
+                s.x += s.vx;
+                s.y += s.vy;
+                s.vy += 0.03; // slight gravity pull downwards
+                s.life -= s.decay;
+
+                if (s.life <= 0) {
+                    sparkles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.fillStyle = s.color;
+                ctx.globalAlpha = s.life;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.size * s.life, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0; // Reset alpha
+
+            requestAnimationFrame(animate);
+        }
+
+        // Click/Touch Listener for Firework Sparkles
+        window.addEventListener("mousedown", (e) => {
+            // Prevent spawning sparkles if clicking UI buttons
+            if (e.target.closest('.interactive')) return;
+            createSparkles(e.clientX, e.clientY);
+            fadeInstruction();
+        });
+
+        window.addEventListener("touchstart", (e) => {
+            if (e.target.closest('.interactive')) return;
+            const touch = e.touches[0];
+            createSparkles(touch.clientX, touch.clientY);
+            fadeInstruction();
+        }, { passive: true });
+
+        // Helper: Fade away user instructions banner
+        function fadeInstruction() {
+            const banner = document.getElementById("instruction");
+            if (banner) {
+                banner.style.opacity = "0";
+                setTimeout(() => banner.remove(), 1000);
+            }
+        }
+
+        // Start animation frame
+        requestAnimationFrame(animate);
+    </script>
+</body>
+
+</html>
